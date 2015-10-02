@@ -22,8 +22,25 @@ sha512_digest::sha512_digest(unsigned char* input) {
 }
 
 bool sha512_digest::operator==(sha512_digest &rhs) {
-	return memcmp(digest, (unsigned long long int*)rhs, digest_size_char);
+	// memcmp returns 0 if values are equal... stupid...
+	if (memcmp(digest, (unsigned long long int*)rhs, digest_size_char) == 0) {
+		return true;
+	}
+	else {
+		return false;
+	}
 }
+
+bool sha512_digest::operator!=(sha512_digest &rhs) {
+	// memcmp returns 0 if values are equal... stupid...
+	if (memcmp(digest, (unsigned long long int*)rhs, digest_size_char) == 0) {
+		return false;
+	}
+	else {
+		return true;
+	}
+}
+
 
 std::string sha512_digest::to_hex_string() {
     std::ostringstream buf;

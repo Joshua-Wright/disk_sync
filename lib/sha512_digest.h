@@ -17,6 +17,7 @@ public:
     operator unsigned long long int* () {return reinterpret_cast<unsigned long long int*> (digest); };
     operator uint64_t*               () {return reinterpret_cast<uint64_t*              > (digest); };
     bool operator==(sha512_digest &rhs);
+    bool operator!=(sha512_digest &rhs);
     std::string to_hex_string();
 };
 

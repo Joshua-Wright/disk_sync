@@ -2,7 +2,6 @@
 #define SHA512
 
 #include <cstdint>
-// #include <stdint.h>
 
 // typedef uint64_t sha512_digest[8];
 const int SHA512_DIGEST_SIZE = 64;
