@@ -6,7 +6,6 @@
 
 /*
 g++ -Wall -Wextra -std=gnu++11 -c     block_device_size.cpp -O3
-
 g++ -Wall -Wextra -std=gnu++11 -c lib/block_device_size.cpp -o lib/block_device_size.o -O3
 */
 

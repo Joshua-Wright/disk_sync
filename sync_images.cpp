@@ -2,33 +2,24 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-// #include <vector>
 #include <list>
 #include <cstring>
 #include <cstdio>
-#include <set>
+#include <cstdint>
 #include <thread> // for threads
 #include <atomic> // for std::atomic_ullong
-#include "lib/sha512.h"
 #include "lib/block_device_size.h"
-#include "lib/sha512_digest.h"
-
+#include <fcntl.h>
 /*
-g++        -O3 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/sha512.cpp lib/sha512_digest.cpp lib/block_device_size.cpp sync_images.cpp -o sync_images
-clang++    -O3 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/sha512.cpp lib/sha512_digest.cpp lib/block_device_size.cpp sync_images.cpp -o sync_images
-clang++ -g -O0 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/sha512.cpp lib/sha512_digest.cpp lib/block_device_size.cpp sync_images.cpp -o sync_images
+g++        -O3 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/block_device_size.cpp sync_images.cpp -o sync_images
+clang++    -O3 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/block_device_size.cpp sync_images.cpp -o sync_images
+clang++ -g -O0 -Wall -Wextra -lpthread -std=gnu++11 lib/sha512-64.S lib/block_device_size.cpp sync_images.cpp -o sync_images
 */
-
 const int THREAD_COUNT = 4;
-
-void print(const long long int i){
-	std::cout << i << std::endl;
-	return;
-};
-void print(const std::string& i){
-	std::cout << i << std::endl;
-	return;
-};
+// remember to include the assembly sha512 code
+extern "C" void sha512_compress(uint64_t state[8], const uint8_t block[128]);
+// universal constant
+const int SHA512_DIGEST_SIZE = 64; // need to inline stuff from the other code
 
 typedef unsigned char uchar;
 typedef unsigned long long int ullong;
@@ -38,44 +29,80 @@ void hash_thread(std::atomic_ullong&     current_block_atomic,
 				 const std::string&      output_filename,
 				 const ullong            n_blocks,
 				 const ullong            blocksize,
-				 const std::set<ullong>& percentages
+				 const uchar           * empty_block,
+				 const uint64_t        * empty_hash_uint64_t
 				 ){
 
+	ullong progress_every_blocks = n_blocks/100;
 	std::string hash_filename = output_filename + ".hash";
-	std::ifstream   input_stream  (input_filename,  std::ifstream::binary | std::ifstream::ate);
-	std::fstream    hash_stream   (hash_filename,   std::fstream::binary  | std::fstream::in | std::fstream::out);
-	std::fstream    output_stream (output_filename, std::fstream::binary  | std::fstream::in | std::fstream::out);
-	std::streamsize rw_size;
-	uchar current_block_buffer[blocksize];
-	sha512_digest new_hash, existing_hash;
-	
+	std::FILE * input_file  = fopen(input_filename.c_str(),  "r+");
+	std::FILE * hash_file   = fopen(hash_filename.c_str(),   "r+");
+	std::FILE * output_file = fopen(output_filename.c_str(), "r+");
+	std::size_t rw_size;
+	uint64_t new_hash_uint64_t      [SHA512_DIGEST_SIZE/sizeof(uint64_t)];
+	uint64_t existing_hash_uint64_t [SHA512_DIGEST_SIZE/sizeof(uint64_t)];
+	uchar block_buffer_uchar        [blocksize];
+
 	// do this funky comparison because we must only interact with current_block_atomic once per loop
 	for (ullong current_block=0; (current_block=current_block_atomic++)<n_blocks; ) {
-		input_stream.seekg(current_block * blocksize);
-		input_stream.read((char*)current_block_buffer, blocksize);
-		rw_size = input_stream.gcount();
+		std::fseek(input_file, current_block * blocksize, SEEK_SET);
+		rw_size = std::fread(block_buffer_uchar, 1, blocksize, input_file);
+		std::fseek(hash_file, current_block * SHA512_DIGEST_SIZE, SEEK_SET);
+		std::fread(existing_hash_uint64_t, 1, SHA512_DIGEST_SIZE, hash_file);
 
-		hash_stream.seekg(current_block * SHA512_DIGEST_SIZE);
-		hash_stream.read(existing_hash, SHA512_DIGEST_SIZE);
-		
-		sha512_hash(current_block_buffer, blocksize, new_hash);
+		// check if block is empty, and if so, don't even hash it
+		if (memcmp(block_buffer_uchar, empty_block, blocksize) == 0) { // block is empty
+			// only write sparse blocks if their hash does not match
+			if (memcmp(existing_hash_uint64_t, empty_hash_uint64_t, SHA512_DIGEST_SIZE)) { // hashes to not match
+				// yes, output_file->_fileno is dirty and crazy non-portable...
+				fallocate(output_file->_fileno, FALLOC_FL_PUNCH_HOLE || FALLOC_FL_KEEP_SIZE, current_block * blocksize, blocksize);
+				// write hash
+				std::fseek(hash_file, current_block * SHA512_DIGEST_SIZE, SEEK_SET);
+				std::fwrite(empty_hash_uint64_t, 1, SHA512_DIGEST_SIZE, hash_file);
+			}
+		} else {
+			// copy-pasted from sha512_hash function
+			new_hash_uint64_t[0] = UINT64_C(0x6A09E667F3BCC908);
+			new_hash_uint64_t[1] = UINT64_C(0xBB67AE8584CAA73B);
+			new_hash_uint64_t[2] = UINT64_C(0x3C6EF372FE94F82B);
+			new_hash_uint64_t[3] = UINT64_C(0xA54FF53A5F1D36F1);
+			new_hash_uint64_t[4] = UINT64_C(0x510E527FADE682D1);
+			new_hash_uint64_t[5] = UINT64_C(0x9B05688C2B3E6C1F);
+			new_hash_uint64_t[6] = UINT64_C(0x1F83D9ABFB41BD6B);
+			new_hash_uint64_t[7] = UINT64_C(0x5BE0CD19137E2179);
+			uint32_t i;
+			for (i = 0; rw_size - i >= 128; i += 128)
+				sha512_compress(new_hash_uint64_t, block_buffer_uchar + i);
+			uint8_t block[128];
+			uint32_t rem = rw_size - i;
+			memcpy(block, block_buffer_uchar + i, rem);
+			block[rem] = 0x80;
+			rem++;
+			if (128 - rem >= 16)
+				memset(block + rem, 0, 120 - rem);
+			else {
+				memset(block + rem, 0, 128 - rem);
+				sha512_compress(new_hash_uint64_t, block);
+				memset(block, 0, 120);
+			}
+			uint64_t longLen = ((uint64_t)rw_size) << 3;
+			for (i = 0; i < 8; i++)
+				block[128 - 1 - i] = (uint8_t)(longLen >> (i * 8));
+			sha512_compress(new_hash_uint64_t, block);
 
-		if (new_hash != existing_hash) {
 
-			output_stream.seekp(current_block * blocksize);
-			output_stream.write((char*)current_block_buffer, rw_size);
-			output_stream.flush(); // idk if this is a good idea?
-		
-			hash_stream.seekp(current_block * SHA512_DIGEST_SIZE);
-			hash_stream.write(new_hash, SHA512_DIGEST_SIZE);
-			hash_stream.flush();
+			if (memcmp(existing_hash_uint64_t, new_hash_uint64_t, SHA512_DIGEST_SIZE) != 0) { // hashes to not match
+				std::fseek(output_file, current_block * blocksize, SEEK_SET);
+				std::fwrite(block_buffer_uchar, 1, rw_size, output_file);
+				std::fseek(hash_file, current_block * SHA512_DIGEST_SIZE, SEEK_SET);
+				std::fwrite(new_hash_uint64_t, 1, SHA512_DIGEST_SIZE, hash_file);
+			}
 		}
-		// don't need to check because it simply will never find the value
-		auto search = percentages.find(current_block);
-		if (search != percentages.end()){
-			std::cout << ((*search)*100)/n_blocks << "%... ";
-			// need to sync because we don't print newlines
-			std::cout.flush();
+		if ( (current_block % progress_every_blocks) == 0) {
+				// "\r" returns the terminal cursor to the beginning of the line
+				std::cout << "\r" << (current_block*100)/n_blocks << "%";
+				// need to sync because we don't print newlines
+				std::cout.flush();
 		}
 	}
 	return;
@@ -102,14 +129,12 @@ int main(int argc, char const *argv[])
 	                            );
 	input_stream.seekg(0);
 	// divide in a way that rounds up
-	ullong n_blocks ((input_size+blocksize-1)/blocksize);
+	ullong n_blocks (( input_size + blocksize - 1 )/blocksize);
 
 	std::string hash_filename (argv[2]);
 	hash_filename += ".hash";
 	std::fstream hash_stream (hash_filename, std::fstream::binary  | std::fstream::in | std::fstream::out);
 	if (!hash_stream) {
-		// does not automatically create a new hash file because missing an output 
-		// file is a possible symptom of further failure
 		std::cout << "Could not open hash file. Make one with:" << std::endl;
 		std::cout << "truncate -s " << n_blocks * SHA512_DIGEST_SIZE << " " << hash_filename <<
 			std::endl;
@@ -118,32 +143,52 @@ int main(int argc, char const *argv[])
 
 	std::fstream output_stream (argv[2], std::fstream::binary|std::fstream::in|std::fstream::out);
 	if (!output_stream) {
-		// does not automatically create a new output file because missing an output 
-		// file is a possible symptom of further failure
 		std::cout << "Could not open output file. Make one with:" << std::endl;
 		std::cout << "truncate -s " << input_size << " " << argv[2] << std::endl;
 		return 1;
 	}
-
-	// build a percentage list only if we have enough blocks
-	std::set<ullong> percentages;
-	if (n_blocks >= 10){   
-		for (ullong i=0; i<n_blocks; i+=(n_blocks/10) ) {
-			// print(i);
-			percentages.insert(i);
-		}
-	}
-
-	// New multi-threaded code:
 	
 	// the threads have to open their own files
 	input_stream.close();
 	output_stream.close();
 	hash_stream.close();
+
+	// TOOD: Pack this all in a struct?
 	std::atomic_ullong     current_block (0);
 	std::string            input_filename  (argv[1]);
 	std::string            output_filename (argv[2]);
 	
+	uchar*    empty_block         = new uchar    [blocksize];
+	uint64_t* empty_hash_uint64_t = new uint64_t [SHA512_DIGEST_SIZE/sizeof(uint64_t)];
+	memset(empty_block, 0, blocksize);
+	empty_hash_uint64_t[0] = UINT64_C(0x6A09E667F3BCC908);
+	empty_hash_uint64_t[1] = UINT64_C(0xBB67AE8584CAA73B);
+	empty_hash_uint64_t[2] = UINT64_C(0x3C6EF372FE94F82B);
+	empty_hash_uint64_t[3] = UINT64_C(0xA54FF53A5F1D36F1);
+	empty_hash_uint64_t[4] = UINT64_C(0x510E527FADE682D1);
+	empty_hash_uint64_t[5] = UINT64_C(0x9B05688C2B3E6C1F);
+	empty_hash_uint64_t[6] = UINT64_C(0x1F83D9ABFB41BD6B);
+	empty_hash_uint64_t[7] = UINT64_C(0x5BE0CD19137E2179);
+	uint32_t i;
+	for (i = 0; blocksize - i >= 128; i += 128)
+		sha512_compress(empty_hash_uint64_t, empty_block + i);
+	uint8_t block[128];
+	uint32_t rem = blocksize - i;
+	memcpy(block, empty_block + i, rem);
+	block[rem] = 0x80;
+	rem++;
+	if (128 - rem >= 16)
+		memset(block + rem, 0, 120 - rem);
+	else {
+		memset(block + rem, 0, 128 - rem);
+		sha512_compress(empty_hash_uint64_t, block);
+		memset(block, 0, 120);
+	}
+	uint64_t longLen = ((uint64_t)blocksize) << 3;
+	for (i = 0; i < 8; i++)
+		block[128 - 1 - i] = (uint8_t)(longLen >> (i * 8));
+	sha512_compress(empty_hash_uint64_t, block);
+
 	std::list<std::thread> threads;
 	for (int i=0; i<THREAD_COUNT; i++){
 		// constructs them in-place, so we don't have to worry about a temp var or copy-insertion or anything
@@ -153,13 +198,14 @@ int main(int argc, char const *argv[])
 							 std::ref(output_filename),
 							 n_blocks,
 							 blocksize,
-							 std::ref(percentages)
+							 empty_block,
+							 empty_hash_uint64_t
 							);
 	}
 	for (auto& t : threads) {
 		t.join();
 	}
-	// this print statement prints the final newline that wasn't printed by the progress bar
-	print("done");
+	std::cout << "\rDone   " << std::endl;
+	// std::cout << std::endl;
 	return 0;
 }

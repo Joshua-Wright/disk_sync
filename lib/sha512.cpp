@@ -1,9 +1,9 @@
-#include "sha512.h"
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include "sha512.h"
 /*
 g++ -Wall -Wextra -std=gnu++11 -c sha512-64.S -O3
 g++ -Wall -Wextra -std=gnu++11    sha512-64.S -c sha512.cpp -O3
