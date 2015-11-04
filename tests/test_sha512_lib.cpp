@@ -1,39 +1,57 @@
-// # (c) Copyright 2015 Josh Wright
+//
+// Created by j0sh on 11/3/15.
+//
 #include <iostream>
-#include "../lib/sha512.h"
-#include "../lib/sha512_digest.h"
+#include <string>
+#include <sstream>
+#include <iomanip>
+//#include <cstring>
+#include "../lib/coreutils/lib/config.h"
+#include "../lib/coreutils/lib/sha512.h"
 
-/*
-g++ -Wall         -std=gnu++11 ../lib/sha512-64.S ../lib/sha512.cpp ../lib/sha512_digest.cpp test_sha512_lib.cpp -o test_sha512_lib
-g++ -Wall -Wextra -std=gnu++11 ../lib/sha512-64.S ../lib/sha512.cpp ../lib/sha512_digest.cpp test_sha512_lib.cpp -o test_sha512_lib
-g++ -Wall -Wextra -std=gnu++11 ../lib/sha512-64.o ../lib/sha512.o   ../lib/sha512_digest.o   test_sha512_lib.cpp -o test_sha512_lib
-*/ 
+// this is defined in the coreutils header
+// idk why it's an enum though
+//const int SHA512_DIGEST_SIZE = 64;
+using namespace std;
 
-using std::string;
-using std::cout;
-using std::endl;
-
-
-std::string binary_digest_to_hex(unsigned char* digest) {
-    char buf[2*SHA512_DIGEST_SIZE+1];
-    buf[2*SHA512_DIGEST_SIZE] = 0;
-    for (int i = 0; i < SHA512_DIGEST_SIZE; i++)
-        sprintf(buf+i*2, "%02x", digest[i]);
-    return std::string(buf);
+std::string binary_digest_to_hex(unsigned char *digest) {
+    std::string output;
+    std::stringstream output_stream;
+    for (int i = 0; i < SHA512_DIGEST_SIZE; i++) {
+        output_stream.setf(std::ios::hex, std::ios::basefield);
+        output_stream.unsetf(std::ios::showbase);
+        output_stream << std::setfill('0') << std::setw(2) << (int) digest[i];
+    }
+    output_stream.flush();
+    output_stream.sync();
+    return output_stream.str();
 }
 
- 
-int main(int argc, char *argv[])
-{
-    // unsigned char digest[64];
-    sha512_digest digest[2];
-    char* input = "asdf";
-    unsigned char* input_1 = reinterpret_cast<unsigned char*>(input);
-    input = "qwerty";
-    unsigned char* input_2 = reinterpret_cast<unsigned char*>(input);
-    sha512_hash(input_1, 4u, digest[0]);
-    sha512_hash(input_2, 6u, digest[1]);
-    cout << "sha512: "<< input_1 << endl << binary_digest_to_hex(digest[0]) << endl;
-    cout << "sha512: "<< input_2 << endl << binary_digest_to_hex(digest[1]) << endl;
-    return 0;
+struct hash_test {
+    string data;
+    string expected_hash;
+    unsigned char digest[SHA512_DIGEST_SIZE];
+
+    hash_test(string data, string expected_hash) : data(data), expected_hash(expected_hash) { };
+
+    void verify() {
+        sha512_buffer(data.c_str(), data.size(), digest);
+        string hash_str = binary_digest_to_hex(digest);
+        if (hash_str != expected_hash) {
+            cout << "Failed to hash: " << data << endl;
+            cout << "Expected: " << expected_hash << endl;
+            cout << "Got:      " << hash_str << endl;
+        }
+    }
+};
+
+
+int main() {
+    using namespace std;
+    hash_test a("asdf",
+                "401b09eab3c013d4ca54922bb802bec8fd5318192b0a75f201d8b3727429080fb337591abd3e44453b954555b7a0812e1081c39b740293f765eae731f5a65ed1");
+    hash_test b("test all of this stuff 12345",
+                "fcd5f7f2ac2a36472805bb0e0c96efa252b6ea180d7885c8c7d913382103f4f8b49215c4f1d5975d2427c7d9c7d0f1c5f6901df9d07fbd3303b7ac6ab20a0d17");
+    a.verify();
+    b.verify();
 }
