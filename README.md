@@ -2,7 +2,7 @@
 Syncs disk images using a hash index to avoiding reading the backup image except when necessary. Uses multiple threads to calculate hashes as fast as possible, and intelligently marks empty blocks as sparse on output. 
 
 #### Example Use Case:
-Back up a SSD to an external HDD: The bottleneck will be the CPU using all available threads to calculate hashes of each block.  
+Back up a SSD to an external HDD: The bottleneck will be the CPU using all available cores to calculate hashes of each block.  
 
 #### Usage:
 sync_images \<input file\> \<output file\> \<blocksize\>
