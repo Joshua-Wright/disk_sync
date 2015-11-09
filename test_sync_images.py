@@ -14,6 +14,7 @@ BYTES_PER_MB = 1024*1024
 TEST_FILE_SIZE = BYTES_PER_GB
 
 test_dir = "/home/j0sh/Documents/disk_sync_test"
+test_cfg_path = "/home/j0sh/Dropbox/code/Cpp/disk_sync/test_cfg.json"
 sync_binary_path = "/home/j0sh/Dropbox/code/Cpp/disk_sync/sync_images"
 # sync_binary_path = "/sync_images"
 test_1GB_basic = os.path.join(test_dir, "test_1GB_basic.img")
@@ -48,6 +49,19 @@ def make_random_changes(path, count=500):
 			f.seek(random.randint(0, size))
 			f.write(os.urandom(random.randint(0, 2*blocksize)))
 
+def write_cfg_file(cfg_path, test_file_path, blocksize):
+	with open(cfg_path, 'w') as output_fobj:
+		# output_fobj.write(
+		output_fobj.write('{'                                            )
+		output_fobj.write('	"input": "'+test_file_path+'",'              )
+		output_fobj.write('	"output": "'+(test_file_path+".synced")+'",' )
+		output_fobj.write('	"blocksize": '+str(blocksize)+','            )
+		output_fobj.write('	"threads": 4,'                               )
+		output_fobj.write('	"output interval": 1,'                       )
+		output_fobj.write('	"sparse output": true,'                      )
+		output_fobj.write('	"status update": true'                       )
+		output_fobj.write('}'                                            )
+
 if not os.path.exists(test_1GB_basic):
 	make_one_gb_file(test_1GB_basic)
 if not os.path.exists(test_1GB_sequential):
@@ -62,7 +76,9 @@ for file_path in [test_1GB_basic, test_1GB_sequential]:
 		make_sparse_file(file_path + ".synced.hash",  TEST_FILE_SIZE/64) # 64 is size of sha512 hash
 	if not os.path.exists(file_path + ".synced"):
 		make_sparse_file(file_path + ".synced",  TEST_FILE_SIZE)
-	cmd_string = " ".join([sync_binary_path, file_path, file_path+".synced", str(blocksize)])
+	# cmd_string = " ".join([sync_binary_path, file_path, file_path+".synced", str(blocksize)])
+	write_cfg_file(test_cfg_path, file_path, blocksize)
+	cmd_string = sync_binary_path + " " + test_cfg_path
 	print("Running: " + cmd_string)
 	t0 = time.time()
 	os.system(cmd_string)
