@@ -2,7 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <list>
-#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/json_parser.hpp> // for parsing cfg files
+#include <boost/thread.hpp>
 #include <cstring> // memcmp, memset ...
 #include <ctime> // time
 #include <thread>  // threads
@@ -140,7 +141,6 @@ void hash_thread(config_struct &cfg) {
     return;
 }
 
-
 int main(int argc, char const *argv[]) {
 
     if (argc < 1) {
@@ -160,7 +160,7 @@ int main(int argc, char const *argv[]) {
         try {
             cfg.thread_cout = test_tree.get<int>("threads");
         } catch (cfg_field_not_found) {
-            cfg.thread_cout = 1;
+            cfg.thread_cout = boost::thread::hardware_concurrency();
         }
         try {
             cfg.output_interval = test_tree.get<int>("output interval");
