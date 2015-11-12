@@ -5,9 +5,8 @@
 #include <boost/property_tree/json_parser.hpp> // for parsing cfg files
 #include <boost/thread.hpp>
 #include <cstring> // memcmp, memset ...
-#include <ctime> // time
 #include <thread>  // threads
-#include <unistd.h> // sleep (linux-only)
+#include <chrono>
 #include <atomic>  // std::atomic_ullong
 #include <fcntl.h> // fallocate?
 #include <stropts.h> // fallocate?
@@ -24,13 +23,15 @@
 #include "lib/coreutils/lib/sha512.h" // for sha512_buffer
 
 /*
-g++ -O3 -Wall -Wextra -lpthread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images -fpermissive
+g++ -O3 -Wall -Wextra fpermissive -lpthread -lboost_system -lboost_thread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images
 */
 
 typedef unsigned char uchar;
 typedef unsigned long long int ullong;
 typedef long long int llong;
 typedef boost::exception_detail::clone_impl<boost::exception_detail::error_info_injector<boost::property_tree::ptree_bad_data>> cfg_field_not_found;
+typedef std::chrono::milliseconds ms;
+typedef std::chrono::steady_clock steady_clock;
 
 struct config_struct {
     std::atomic_ullong current_block;
@@ -41,7 +42,7 @@ struct config_struct {
     ullong blocksize;
     char *empty_block;
     char *empty_hash;
-    int output_interval;
+    ms output_interval;
     int thread_cout;
     bool use_sparse_output;
     bool do_status_update;
@@ -49,6 +50,7 @@ struct config_struct {
 
 void progress_thread(config_struct &cfg) {
     time_t start_time = std::time(0);
+    auto next_time = steady_clock::now();
     long eta;
     long eta_min = 0;
     long eta_sec = 0;
@@ -58,6 +60,7 @@ void progress_thread(config_struct &cfg) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfor-loop-analysis"
     while (cfg.current_block < cfg.n_blocks) {
+        next_time += cfg.output_interval;
         progress_precentage = 1.0 * cfg.current_block / cfg.n_blocks;
         eta = (long) ((time(0) - start_time) * (1.0 - progress_precentage) / progress_precentage);
         eta_sec = eta % 60;
@@ -71,7 +74,7 @@ void progress_thread(config_struct &cfg) {
         std::cout << eta_min << "m ";
         std::cout << eta_sec << "s";
         std::cout.flush();
-        sleep((unsigned int) cfg.output_interval);
+        std::this_thread::sleep_until(next_time);
     }
 #pragma clang diagnostic pop
     // pad output with spaces to make sure that we clear the eta timer
@@ -143,7 +146,7 @@ void hash_thread(config_struct &cfg) {
 
 int main(int argc, char const *argv[]) {
 
-    if (argc < 1) {
+    if (argc < 2) {
         std::cerr << "Must supply config file!" << std::endl;
         return 1;
     }
@@ -157,25 +160,23 @@ int main(int argc, char const *argv[]) {
         cfg.output_file_path = test_tree.get<std::string>("output");
         cfg.hash_file_path = cfg.output_file_path + ".hash";
         cfg.blocksize = test_tree.get<ullong>("blocksize");
-        try {
+        /* Default values: */
+        cfg.output_interval = (ms) 1000;
+        cfg.thread_cout = boost::thread::hardware_concurrency();
+        cfg.use_sparse_output = true;
+        cfg.do_status_update = true;
+        /* check for non-default values */
+        if (test_tree.get_optional<int>("threads")) {
             cfg.thread_cout = test_tree.get<int>("threads");
-        } catch (cfg_field_not_found) {
-            cfg.thread_cout = boost::thread::hardware_concurrency();
         }
-        try {
-            cfg.output_interval = test_tree.get<int>("output interval");
-        } catch (cfg_field_not_found) {
-            cfg.output_interval = 1;
+        if (test_tree.get_optional<int>("output interval")) {
+            cfg.output_interval = (ms) test_tree.get<int>("output interval");
         }
-        try {
+        if (test_tree.get_optional<bool>("sparse output")) {
             cfg.use_sparse_output = test_tree.get<bool>("sparse output");
-        } catch (cfg_field_not_found) {
-            cfg.use_sparse_output = false;
         }
-        try {
+        if (test_tree.get_optional<bool>("status update")) {
             cfg.do_status_update = test_tree.get<bool>("status update");
-        } catch (cfg_field_not_found) {
-            cfg.do_status_update = true;
         }
     } catch (cfg_field_not_found &e) {
         std::cerr << "Could not parse config file!" << std::endl;
@@ -194,7 +195,7 @@ int main(int argc, char const *argv[]) {
         std::cerr << "Config error: need at least one thread!" << std::endl;
         return 1;
     }
-    if (cfg.output_interval < 0) {
+    if (cfg.output_interval < ms(0)) {
         std::cerr << "Config error: cannot output at negetive interval!" << std::endl;
         return 1;
     }

@@ -52,15 +52,17 @@ def make_random_changes(path, count=500):
 def write_cfg_file(cfg_path, test_file_path, blocksize):
 	with open(cfg_path, 'w') as output_fobj:
 		# output_fobj.write(
-		output_fobj.write('{'                                            )
-		output_fobj.write('	"input": "'+test_file_path+'",'              )
-		output_fobj.write('	"output": "'+(test_file_path+".synced")+'",' )
-		output_fobj.write('	"blocksize": '+str(blocksize)+','            )
-		output_fobj.write('	"threads": 4,'                               )
-		output_fobj.write('	"output interval": 1,'                       )
-		output_fobj.write('	"sparse output": true,'                      )
-		output_fobj.write('	"status update": true'                       )
-		output_fobj.write('}'                                            )
+		output_fobj.write('{'                                            +'\n')
+		output_fobj.write('	"input": "'+test_file_path+'",'              +'\n')
+		output_fobj.write('	"output": "'+(test_file_path+".synced")+'",' +'\n')
+		output_fobj.write('	"blocksize": '+str(blocksize)+','            +'\n')
+		output_fobj.write('	"threads": 4,'                               +'\n')
+		# output_fobj.write('	"output interval": 500,'                       +'\n')
+		# output_fobj.write('	"output interval": 33,'                       +'\n')
+		output_fobj.write('	"sparse output": true,'                      +'\n')
+		output_fobj.write('	"status update": true'                       +'\n')
+		# output_fobj.write('	"status update": false'                       +'\n')
+		output_fobj.write('}'                                            +'\n')
 
 if not os.path.exists(test_1GB_basic):
 	make_one_gb_file(test_1GB_basic)
