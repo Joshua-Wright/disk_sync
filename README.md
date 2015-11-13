@@ -5,7 +5,7 @@ Syncs disk images using a hash index to avoiding reading the backup image except
 Back up a SSD to an external HDD: The bottleneck will be the CPU using all available cores to calculate hashes of each block.  
 
 #### Usage:
-sync_images \<path_to_config_file\>
+sync_images \<```path/to/config/file.json``` or ```-``` to read config file from stdin\>
 
 ### Configuration File:
 * [JSON](https://en.wikipedia.org/wiki/JSON) format
