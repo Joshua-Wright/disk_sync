@@ -23,7 +23,7 @@
 #include "lib/coreutils/lib/sha512.h" // for sha512_buffer
 
 /*
-g++ -O3 -Wall -Wextra fpermissive -lpthread -lboost_system -lboost_thread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images
+g++ -O3 -Wall -Wextra -fpermissive -lpthread -lboost_system -lboost_thread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images
 */
 
 typedef unsigned char uchar;
@@ -154,7 +154,12 @@ int main(int argc, char const *argv[]) {
     config_struct cfg;
     boost::property_tree::ptree test_tree;
     try {
-        boost::property_tree::json_parser::read_json(argv[1], test_tree);
+        /* argv[1] is null-terminated "-" C-string. "-" is Linux convention for "read from stdin" */
+        if (argv[1][0] == '-' || argv[1][1] == 0) {
+            boost::property_tree::json_parser::read_json(std::cin, test_tree);
+        } else {
+            boost::property_tree::json_parser::read_json(argv[1], test_tree);
+        }
         cfg.current_block = 0;
         cfg.input_file_path = test_tree.get<std::string>("input");
         cfg.output_file_path = test_tree.get<std::string>("output");
