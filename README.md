@@ -15,7 +15,7 @@ sync_images \<path_to_config_file\>
 * *```blocksize```: blocksize (integer)
 * ```threads```: number of threads to use. Defaults to number of available cores
 * ```status update```: whether to output progress information. Defaults to ```true```
-* ```output interval```: how often to output progress in seconds. Defaults to 1
+* ```output interval```: how often to output progress in milliseconds. Defaults to 1000
 * ```sparse output```: whether to sparsify output file. Defaults to ```true```
 
 
