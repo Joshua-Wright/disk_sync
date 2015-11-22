@@ -70,6 +70,8 @@ if not os.path.exists(test_1GB_sequential):
 	make_one_gb_file(test_1GB_sequential, fill="sequential")
 
 
+all_tests_passed = True
+
 # for file_path in [test_1GB_basic]:
 for file_path in [test_1GB_basic, test_1GB_sequential]:
 	if do_random_changes:
@@ -88,3 +90,9 @@ for file_path in [test_1GB_basic, test_1GB_sequential]:
 	print("Time: " + str(t1 - t0))
 	if not filecmp.cmp(file_path, file_path+".synced", shallow=False):
 		print("TEST FAILED: Files are not equal: " + file_path)
+		all_tests_passed = False
+
+if all_tests_passed:
+	print("All tests passed!")
+else:
+	print("SOME TESTS FAILED!!!")

@@ -1,4 +1,7 @@
-//
-// Created by j0sh on 11/9/15.
-//
+#include <iostream>
+#include <boost/thread.hpp>
 
+int main() {
+    using namespace std;
+    cout << boost::thread::hardware_concurrency() << endl;
+}
