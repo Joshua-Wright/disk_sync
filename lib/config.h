@@ -24,8 +24,9 @@ struct config_struct {
     int thread_cout;
     bool use_sparse_output;
     bool do_status_update;
+    ullong input_size;
 };
 
-config_struct *read_config(const int argc, const char* argv[]);
+config_struct *read_config(const int argc, const char **argv);
 
 #endif //ASSEMBLER_CONFIG_H

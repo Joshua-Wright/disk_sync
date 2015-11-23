@@ -4,26 +4,25 @@
 #include <list>
 #include <boost/thread.hpp>
 #include <thread>  // threads
-#include <fcntl.h>
 #include <stropts.h>
 #include <linux/fs.h>
-#include "config.h"
-#include "progress_thread.h"
-#include "hash_thread.h"
-#pragma ide diagnostic ignored "UnusedImportStatement"
-
+#include <fcntl.h>
+#include "lib/config.h"
+#include "lib/progress_thread.h"
+#include "lib/hash_thread.h"
+#include "lib/immutable.h"
+#include "lib/block_device_size.h"
 #include "lib/coreutils/lib/config.h" // needed or else u64.h complains
-
-#pragma clang diagnostic pop
 #include "lib/coreutils/lib/sha512.h"
 
 /*
 g++ -O3 -Wall -Wextra -fpermissive -lpthread -lboost_system -lboost_thread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images
 */
-int main(int argc, char const *argv[]) {
 
+int main(int argc, char const **argv) {
+
+    /*read the config*/
     config_struct *cfg = read_config(argc, argv);
-
 
     // make sure we can open the necessary files
     std::ifstream input_stream(cfg->input_file_path, std::ifstream::binary | std::ifstream::ate);
@@ -32,21 +31,6 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    // in lined from block device size
-    std::string arg_1_str(argv[1]);
-    int fh = open(arg_1_str.c_str(), 0);
-    unsigned long long int file_size_in_bytes = 0;
-    ioctl(fh, BLKGETSIZE64, &file_size_in_bytes);
-    ullong input_size = std::max(
-            (ullong) file_size_in_bytes,
-            (ullong) input_stream.tellg()
-    );
-    input_stream.seekg(0);
-
-    // divide and round up
-    cfg->n_blocks = ((input_size + cfg->blocksize - 1) / cfg->blocksize);
-
-    // make sure we can open the necessary files
     std::fstream hash_stream(cfg->hash_file_path, std::fstream::binary | std::fstream::in | std::fstream::out);
     if (!hash_stream) {
         std::cout << "Could not open hash file. Make one with:" << std::endl;
@@ -56,7 +40,7 @@ int main(int argc, char const *argv[]) {
     std::fstream output_stream(cfg->output_file_path, std::fstream::binary | std::fstream::in | std::fstream::out);
     if (!output_stream) {
         std::cout << "Could not open output file. Make one with:" << std::endl;
-        std::cout << "truncate -s " << input_size << " " << cfg->output_file_path << std::endl;
+        std::cout << "truncate -s " << cfg->input_size << " " << cfg->output_file_path << std::endl;
         return 4;
     }
 
@@ -65,10 +49,9 @@ int main(int argc, char const *argv[]) {
     output_stream.close();
     hash_stream.close();
 
-    cfg->empty_block = new char[cfg->blocksize];
-    cfg->empty_hash = new char[SHA512_DIGEST_SIZE];
-    memset(cfg->empty_block, 0, cfg->blocksize);
-    sha512_buffer(cfg->empty_block, cfg->blocksize, cfg->empty_hash);
+    /*unlock the files so they may be modified*/
+    set_mutable(cfg->output_file_path.c_str());
+    set_mutable(cfg->hash_file_path.c_str());
 
     std::list<std::thread> threads;
     for (int n = 0; n < cfg->thread_cout; n++) {
@@ -87,5 +70,10 @@ int main(int argc, char const *argv[]) {
     if (cfg->do_status_update) {
         display_thread.join();
     }
+
+    /*lock the files so nobody changes them while we aren't looking*/
+    set_immutable(cfg->output_file_path.c_str());
+    set_immutable(cfg->hash_file_path.c_str());
+
     return 0;
 }

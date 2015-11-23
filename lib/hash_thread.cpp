@@ -3,18 +3,17 @@
 //
 #include <cstdio>
 #include <stdexcept>
-#include <cstring> // memcmp, memset ...
-#include <fcntl.h> // fallocate?
-#include <stropts.h> // fallocate?
-#include <linux/fs.h> // fallocate?
+#include <cstring> // memcmp, memset, ...
+#include <fcntl.h> // fallocate
+
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "UnusedImportStatement"
 
-#include "lib/coreutils/lib/config.h" // needed or else u64.h complains
+#include "../lib/coreutils/lib/config.h" // needed or else u64.h complains
 
 #pragma clang diagnostic pop
 
-#include "lib/coreutils/lib/sha512.h" // for sha512_buffer
+#include "../lib/coreutils/lib/sha512.h" // for sha512_buffer
 #include "hash_thread.h"
 
 void hash_thread(config_struct &cfg) {
@@ -42,8 +41,7 @@ void hash_thread(config_struct &cfg) {
             // only write sparse blocks if their hash does not match
             if (memcmp(existing_hash, cfg.empty_hash, SHA512_DIGEST_SIZE)) {
                 // hashes do not match
-                // yes, output_file->_fileno is crazy and non-portable...
-                fallocate(output_file->_fileno, FALLOC_FL_PUNCH_HOLE || FALLOC_FL_KEEP_SIZE,
+                fallocate(fileno(output_file), FALLOC_FL_PUNCH_HOLE || FALLOC_FL_KEEP_SIZE,
                           (__off_t) (current_block * cfg.blocksize), (__off_t) cfg.blocksize);
                 std::fflush(output_file);
                 // write hash

@@ -7,16 +7,20 @@
 //#include <boost/thread/detail/thread.hpp>
 #include <boost/thread.hpp>
 #include <boost/property_tree/json_parser.hpp> // for parsing cfg files
+#include "coreutils/lib/config.h" // needed or else u64.h complains
+#include "coreutils/lib/sha512.h"
+#include "block_device_size.h"
 #include "config.h"
 
 typedef boost::exception_detail::clone_impl<boost::exception_detail::error_info_injector<boost::property_tree::ptree_bad_data>> cfg_field_not_found;
 
-config_struct *read_config(const int argc, const char* argv[]) {
+config_struct *read_config(const int argc, const char **argv) {
     if (argc < 2) {
         std::cerr << "Must supply config file!" << std::endl;
         throw std::runtime_error("config File Error");
     }
 
+    /*allocate and return a pointer ot the config struct*/
     config_struct *cfg = new config_struct;
     boost::property_tree::ptree test_tree;
     try {
@@ -70,5 +74,17 @@ config_struct *read_config(const int argc, const char* argv[]) {
         std::cerr << "Config error: cannot output at negetive interval!" << std::endl;
         throw std::runtime_error("config File Error");
     }
+
+    /*get the size of the file*/
+    cfg->input_size = get_special_file_size(cfg->input_file_path.c_str());
+    // divide and round up
+    cfg->n_blocks = ((cfg->input_size + cfg->blocksize - 1) / cfg->blocksize);
+
+
+    cfg->empty_block = new char[cfg->blocksize];
+    cfg->empty_hash = new char[SHA512_DIGEST_SIZE];
+    memset(cfg->empty_block, 0, cfg->blocksize);
+    sha512_buffer(cfg->empty_block, cfg->blocksize, cfg->empty_hash);
+
     return cfg;
 }
