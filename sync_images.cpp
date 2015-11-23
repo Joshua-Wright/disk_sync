@@ -2,22 +2,13 @@
 #include <iostream>
 #include <fstream>
 #include <list>
-#include <boost/thread.hpp>
 #include <thread>  // threads
-#include <stropts.h>
-#include <linux/fs.h>
-#include <fcntl.h>
 #include "lib/config.h"
 #include "lib/progress_thread.h"
 #include "lib/hash_thread.h"
 #include "lib/immutable.h"
-#include "lib/block_device_size.h"
 #include "lib/coreutils/lib/config.h" // needed or else u64.h complains
 #include "lib/coreutils/lib/sha512.h"
-
-/*
-g++ -O3 -Wall -Wextra -fpermissive -lpthread -lboost_system -lboost_thread -std=gnu++14 lib/coreutils/lib/sha512.c sync_images.cpp -o sync_images
-*/
 
 int main(int argc, char const **argv) {
 
@@ -67,6 +58,7 @@ int main(int argc, char const **argv) {
         t.join();
     }
 
+    /*do not join the display thread if no display thread exists*/
     if (cfg->do_status_update) {
         display_thread.join();
     }
