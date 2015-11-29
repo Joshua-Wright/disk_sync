@@ -10,6 +10,7 @@
 
 typedef std::chrono::milliseconds ms;
 typedef unsigned long long int ullong;
+const ullong HASH_SIZE_BYTES = 128/8;
 
 struct config_struct {
     std::atomic_ullong current_block;

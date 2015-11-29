@@ -5,7 +5,6 @@
 #ifndef ASSEMBLER_IMMUTABLE_H
 #define ASSEMBLER_IMMUTABLE_H
 
-#include <string>
 
 void set_immutable(const char *filename);
 

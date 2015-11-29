@@ -19,10 +19,7 @@ sync_binary_path = "/home/j0sh/Dropbox/code/Cpp/disk_sync/sync_images"
 # sync_binary_path = "/sync_images"
 test_1GB_basic = os.path.join(test_dir, "test_1GB_basic.img")
 test_1GB_sequential = os.path.join(test_dir, "test_1GB_sequential.img")
-blocksize = 4096
-
-
-
+blocksize = 32*1024
 
 def make_one_gb_file(path, fill='basic'):
 	with open(path, 'w') as f:
@@ -56,7 +53,7 @@ def write_cfg_file(cfg_path, test_file_path, blocksize):
 		output_fobj.write('	"input": "'+test_file_path+'",'              +'\n')
 		output_fobj.write('	"output": "'+(test_file_path+".synced")+'",' +'\n')
 		output_fobj.write('	"blocksize": '+str(blocksize)+','            +'\n')
-		output_fobj.write('	"threads": 4,'                               +'\n')
+		output_fobj.write('	"threads": 1,'                               +'\n')
 		# output_fobj.write('	"output interval": 500,'                       +'\n')
 		# output_fobj.write('	"output interval": 33,'                       +'\n')
 		output_fobj.write('	"sparse output": true,'                      +'\n')
@@ -77,7 +74,8 @@ for file_path in [test_1GB_basic, test_1GB_sequential]:
 	if do_random_changes:
 		make_random_changes(file_path)
 	if not os.path.exists(file_path + ".synced.hash"):
-		make_sparse_file(file_path + ".synced.hash",  TEST_FILE_SIZE/64) # 64 is size of sha512 hash
+		# make_sparse_file(file_path + ".synced.hash",  TEST_FILE_SIZE/64) # 64 is size of sha512 hash
+		make_sparse_file(file_path + ".synced.hash",  TEST_FILE_SIZE/blocksize*(160/8))
 	if not os.path.exists(file_path + ".synced"):
 		make_sparse_file(file_path + ".synced",  TEST_FILE_SIZE)
 	# cmd_string = " ".join([sync_binary_path, file_path, file_path+".synced", str(blocksize)])

@@ -4,13 +4,11 @@
 
 #include <iostream>
 #include <chrono>
-//#include <boost/thread/detail/thread.hpp>
 #include <boost/thread.hpp>
 #include <boost/property_tree/json_parser.hpp> // for parsing cfg files
-#include "coreutils/lib/config.h" // needed or else u64.h complains
-#include "coreutils/lib/sha512.h"
 #include "block_device_size.h"
 #include "config.h"
+#include "MurmurHash3.h"
 
 typedef boost::exception_detail::clone_impl<boost::exception_detail::error_info_injector<boost::property_tree::ptree_bad_data>> cfg_field_not_found;
 
@@ -82,9 +80,9 @@ config_struct *read_config(const int argc, const char **argv) {
 
 
     cfg->empty_block = new char[cfg->blocksize];
-    cfg->empty_hash = new char[SHA512_DIGEST_SIZE];
+    cfg->empty_hash = new char[HASH_SIZE_BYTES];
     memset(cfg->empty_block, 0, cfg->blocksize);
-    sha512_buffer(cfg->empty_block, cfg->blocksize, cfg->empty_hash);
+    MurmurHash3_x64_128(cfg->empty_block, cfg->blocksize, 0, cfg->empty_hash);
 
     return cfg;
 }

@@ -7,8 +7,6 @@
 #include "lib/progress_thread.h"
 #include "lib/hash_thread.h"
 #include "lib/immutable.h"
-#include "lib/coreutils/lib/config.h" // needed or else u64.h complains
-#include "lib/coreutils/lib/sha512.h"
 
 int main(int argc, char const **argv) {
 
@@ -29,7 +27,7 @@ int main(int argc, char const **argv) {
     std::fstream hash_stream(cfg->hash_file_path, std::fstream::binary | std::fstream::in | std::fstream::out);
     if (!hash_stream) {
         std::cout << "Could not open hash file. Make one with:" << std::endl;
-        std::cout << "truncate -s " << cfg->n_blocks * SHA512_DIGEST_SIZE << " " << cfg->hash_file_path << std::endl;
+        std::cout << "truncate -s " << cfg->n_blocks * HASH_SIZE_BYTES << " " << cfg->hash_file_path << std::endl;
         return 3;
     }
     std::fstream output_stream(cfg->output_file_path, std::fstream::binary | std::fstream::in | std::fstream::out);
