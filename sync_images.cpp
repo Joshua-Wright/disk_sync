@@ -15,6 +15,10 @@ int main(int argc, char const **argv) {
     /*read the config*/
     config_struct *cfg = read_config(argc, argv);
 
+    /*unlock the files so they may be modified*/
+    set_mutable(cfg->output_file_path.c_str());
+    set_mutable(cfg->hash_file_path.c_str());
+
     // make sure we can open the necessary files
     std::ifstream input_stream(cfg->input_file_path, std::ifstream::binary | std::ifstream::ate);
     if (!input_stream) {
@@ -39,10 +43,6 @@ int main(int argc, char const **argv) {
     input_stream.close();
     output_stream.close();
     hash_stream.close();
-
-    /*unlock the files so they may be modified*/
-    set_mutable(cfg->output_file_path.c_str());
-    set_mutable(cfg->hash_file_path.c_str());
 
     std::list<std::thread> threads;
     for (int n = 0; n < cfg->thread_cout; n++) {
