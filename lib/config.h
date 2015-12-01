@@ -18,13 +18,14 @@ struct config_struct {
     std::string hash_file_path;
     ullong n_blocks;
     ullong blocksize;
+    ullong input_size;
     char *empty_block;
     char *empty_hash;
     ms output_interval;
     int thread_cout;
     bool use_sparse_output;
     bool do_status_update;
-    ullong input_size;
+    bool do_set_file_immutable;
 };
 
 config_struct *read_config(const int argc, const char **argv);

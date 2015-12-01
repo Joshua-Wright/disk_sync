@@ -16,8 +16,10 @@ int main(int argc, char const **argv) {
     config_struct *cfg = read_config(argc, argv);
 
     /*unlock the files so they may be modified*/
-    set_mutable(cfg->output_file_path.c_str());
-    set_mutable(cfg->hash_file_path.c_str());
+    if (cfg->do_set_file_immutable) {
+        set_mutable(cfg->output_file_path.c_str());
+        set_mutable(cfg->hash_file_path.c_str());
+    }
 
     // make sure we can open the necessary files
     std::ifstream input_stream(cfg->input_file_path, std::ifstream::binary | std::ifstream::ate);
@@ -64,8 +66,10 @@ int main(int argc, char const **argv) {
     }
 
     /*lock the files so nobody changes them while we aren't looking*/
-    set_immutable(cfg->output_file_path.c_str());
-    set_immutable(cfg->hash_file_path.c_str());
+    if (cfg->do_set_file_immutable) {
+        set_immutable(cfg->output_file_path.c_str());
+        set_immutable(cfg->hash_file_path.c_str());
+    }
 
     return 0;
 }

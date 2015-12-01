@@ -40,6 +40,7 @@ config_struct *read_config(const int argc, const char **argv) {
         cfg->thread_cout = boost::thread::hardware_concurrency();
         cfg->use_sparse_output = true;
         cfg->do_status_update = true;
+        cfg->do_set_file_immutable = false;
         /* check for non-default values */
         if (test_tree.get_optional<int>("threads")) {
             cfg->thread_cout = test_tree.get<int>("threads");
@@ -52,6 +53,9 @@ config_struct *read_config(const int argc, const char **argv) {
         }
         if (test_tree.get_optional<bool>("status update")) {
             cfg->do_status_update = test_tree.get<bool>("status update");
+        }
+        if (test_tree.get_optional<bool>("set output immutable")) {
+            cfg->do_set_file_immutable = test_tree.get<bool>("set output immutable");
         }
     } catch (cfg_field_not_found &e) {
         std::cerr << "Could not parse config file!" << std::endl;
